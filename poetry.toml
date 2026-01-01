@@ -1,0 +1,4 @@
+# This forces poetry to create the virtual env in the project root directory
+[virtualenvs]
+create = true
+in-project = true
