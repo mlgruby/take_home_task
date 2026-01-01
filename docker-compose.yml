@@ -65,18 +65,34 @@ services:
       - pageview-network
 
   flink-jobmanager:
-    image: flink:1.20-scala_2.12
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.flink
     container_name: pageview-flink-jobmanager
     ports:
-      - "8081:8081"
+      - "8081:8081" # Flink Web UI
+      - "9249:9249" # Prometheus metrics
     command: jobmanager
     environment:
       PYTHONPATH: /opt/project
+      RAW_BUCKET: s3://pageview-pipeline-local-raw-events/
+      AGG_BUCKET: s3://pageview-pipeline-local-aggregated/
+      DLQ_BUCKET: s3://pageview-pipeline-local-dlq/
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      AWS_REGION: us-east-1
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       FLINK_PROPERTIES: |
         jobmanager.rpc.address: flink-jobmanager
         metrics.reporters: prom
-        metrics.reporter.prom.class: org.apache.flink.metrics.prometheus.PrometheusReporter
+        metrics.reporter.prom.factory.class: org.apache.flink.metrics.prometheus.PrometheusReporterFactory
         metrics.reporter.prom.port: 9249
+        fs.s3a.endpoint: http://localstack:4566
+        fs.s3a.path.style.access: true
+        fs.s3a.access.key: test
+        fs.s3a.secret.key: test
+        fs.s3a.impl: org.apache.hadoop.fs.s3a.S3AFileSystem
+        state.checkpoints.dir: s3://pageview-pipeline-local-flink-checkpoints/checkpoints/
     networks:
       - pageview-network
     volumes:
@@ -89,20 +105,37 @@ services:
       start_period: 30s
 
   flink-taskmanager:
-    image: flink:1.20-scala_2.12
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.flink
     container_name: pageview-flink-taskmanager
     depends_on:
       flink-jobmanager:
         condition: service_healthy
     command: taskmanager
+    ports:
+      - "9250:9250" # Prometheus metrics
     environment:
       PYTHONPATH: /opt/project
+      RAW_BUCKET: s3://pageview-pipeline-local-raw-events/
+      AGG_BUCKET: s3://pageview-pipeline-local-aggregated/
+      DLQ_BUCKET: s3://pageview-pipeline-local-dlq/
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      AWS_REGION: us-east-1
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       FLINK_PROPERTIES: |
         jobmanager.rpc.address: flink-jobmanager
         taskmanager.numberOfTaskSlots: 2
         metrics.reporters: prom
-        metrics.reporter.prom.class: org.apache.flink.metrics.prometheus.PrometheusReporter
-        metrics.reporter.prom.port: 9249
+        metrics.reporter.prom.factory.class: org.apache.flink.metrics.prometheus.PrometheusReporterFactory
+        metrics.reporter.prom.port: 9250
+        fs.s3a.endpoint: http://localstack:4566
+        fs.s3a.path.style.access: true
+        fs.s3a.access.key: test
+        fs.s3a.secret.key: test
+        fs.s3a.impl: org.apache.hadoop.fs.s3a.S3AFileSystem
+        state.checkpoints.dir: s3://pageview-pipeline-local-flink-checkpoints/checkpoints/
     networks:
       - pageview-network
     volumes:

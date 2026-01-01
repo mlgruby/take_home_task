@@ -2,35 +2,38 @@
 
 import nox
 
-import tomllib
+try:
+    import tomllib
+except ImportError:
+    import tomli as tomllib
 from pathlib import Path
 
-# Extract Python version from pyproject.toml
+# Extract Python version from pyproject.toml (PEP 621)
 def get_python_version() -> str:
     path = Path("pyproject.toml")
     if not path.exists():
-        return "3.12"  # Fallback
-    
+        return "3.10"  # Fallback
+
     with open(path, "rb") as f:
         data = tomllib.load(f)
-        version = data.get("tool", {}).get("poetry", {}).get("dependencies", {}).get("python", "3.12")
-        # Clean up version markers like ^3.12 or >=3.12
-        return version.lstrip("^>=")
+        # Parse '==3.10.*' or '>=3.10'
+        version = data.get("project", {}).get("requires-python", "3.10")
+        target_version = version.replace("==", "").replace(".*", "").lstrip("^>=")
+        return target_version
 
 
-# Extract main dependencies from pyproject.toml
+# Extract main dependencies from pyproject.toml (PEP 621)
 def get_main_deps() -> list[str]:
     path = Path("pyproject.toml")
     if not path.exists():
         return []
-    
+
     with open(path, "rb") as f:
         data = tomllib.load(f)
-        deps = data.get("tool", {}).get("poetry", {}).get("dependencies", {})
-        # Return all keys except 'python'
-        return [k for k in deps.keys() if k != "python"]
+        deps = data.get("project", {}).get("dependencies", [])
+        return deps
 
-nox.options.sessions = ["lint", "format", "type_check", "test", "coverage"]
+nox.options.sessions = ["lint", "format", "type_check", "test", "test_flink", "coverage"]
 python_versions = [get_python_version()]
 
 # Common dependencies for sessions
@@ -59,10 +62,24 @@ def type_check(session: nox.Session) -> None:
 
 
 @nox.session(python=python_versions)
+def test_flink(session: nox.Session) -> None:
+    """Run PyFlink tests with isolated dependencies."""
+    session.install("-r", "flink-app/requirements.txt")
+    session.run(
+        "pytest",
+        "--cov=flink-app/src",
+        "--cov-report=term-missing",
+        "flink-app/tests",
+        *session.posargs,
+        env={"PYTHONPATH": "flink-app"},
+    )
+
+
+@nox.session(python=python_versions)
 def test(session: nox.Session) -> None:
     """Run tests with pytest."""
     session.install("pytest", "pytest-cov", *MAIN_DEPS)
-    session.run("pytest", *session.posargs)
+    session.run("pytest", "--cov=src", "--cov-report=term-missing", *session.posargs)
 
 
 @nox.session(python=python_versions)

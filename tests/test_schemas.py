@@ -15,12 +15,12 @@ class TestPageviewEvent:
             user_id=1234,
             postcode="SW19",
             webpage="https://www.website.com/index.html",
-            timestamp=1611662684,
+            timestamp=1611662684000,
         )
         assert event.user_id == 1234
         assert event.postcode == "SW19"
         assert event.webpage == "https://www.website.com/index.html"
-        assert event.timestamp == 1611662684
+        assert event.timestamp == 1611662684000
 
     def test_invalid_user_id(self) -> None:
         """Test that invalid user_id fails validation."""
@@ -29,7 +29,7 @@ class TestPageviewEvent:
                 user_id=0,  # Must be > 0
                 postcode="SW19",
                 webpage="https://www.website.com",
-                timestamp=1611662684,
+                timestamp=1611662684000,
             )
 
     def test_invalid_postcode(self) -> None:
@@ -39,7 +39,7 @@ class TestPageviewEvent:
                 user_id=1234,
                 postcode="invalid!",  # Contains invalid characters
                 webpage="https://www.website.com",
-                timestamp=1611662684,
+                timestamp=1611662684000,
             )
 
     def test_invalid_webpage_url(self) -> None:
@@ -49,7 +49,7 @@ class TestPageviewEvent:
                 user_id=1234,
                 postcode="SW19",
                 webpage="not-a-url",  # Missing http/https
-                timestamp=1611662684,
+                timestamp=1611662684000,
             )
 
     def test_invalid_timestamp_too_old(self) -> None:
@@ -69,7 +69,7 @@ class TestPageviewEvent:
                 user_id=1234,
                 postcode="SW19",
                 webpage="https://www.website.com",
-                timestamp=5000000000,  # Too far in future (after year 2100)
+                timestamp=5000000000000,  # Too far in future (after year 2100)
             )
 
 

@@ -9,7 +9,7 @@ from kafka.errors import KafkaError, NoBrokersAvailable
 
 from src.common.config import PipelineConfig
 from src.common.logging import setup_logging
-from src.common.metrics import events_published, publish_errors
+from src.common.metrics import events_published, publish_errors, start_metrics_server
 from src.data_generator.generator import PageviewGenerator
 
 
@@ -121,6 +121,10 @@ class PageviewProducer:
 def main() -> None:
     """Main entry point for the data generator."""
     config = PipelineConfig()
+
+    # Start metrics server
+    start_metrics_server(config.metrics_port)
+
     producer = PageviewProducer(config)
     producer.run()
 

@@ -24,8 +24,12 @@ class PageviewEvent(BaseModel):
     @classmethod
     def validate_timestamp(cls, v: int) -> int:
         """Validate timestamp is within reasonable range (year 2000 - 2100)."""
-        if v < 946684800 or v > 4102444800:
-            raise ValueError(f"Invalid epoch timestamp: {v}")
+        # Allow both seconds (old) and milliseconds (new) ranges for compatibility if needed,
+        # but strictly our generator now sends ms. Validating for ms range:
+        # 2000-01-01 ms: 946,684,800,000
+        # 2100-01-01 ms: 4,102,444,800,000
+        if v < 946684800000 or v > 4102444800000:
+            raise ValueError(f"Invalid epoch timestamp (ms): {v}")
         return v
 
     model_config = {

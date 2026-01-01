@@ -69,14 +69,14 @@ Once `make infra-up` completes, we will have:
 
 ### 🔗 Service Endpoints
 
-| Service | URL                                                                                  | Description |
-| :--- |:-------------------------------------------------------------------------------------| :--- |
-| **Grafana** | [http://localhost:3000](http://localhost:3000)                                       | Visualization (User: `admin` / Pass: `admin`) |
-| **Kafka Dashboard** | [http://localhost:3000/d/kafka-overview](http://localhost:3000/d/kafka-overview)     | **Direct Link to Kafka Metrics** |
-| **Flink Dashboard** | [http://localhost:8081](http://localhost:8081)                                       | JobManager UI |
-| **Prometheus** | [http://localhost:9090/targets](http://localhost:9090/targets)                              | Metrics Server |
-| **Kafka Exporter** | [http://localhost:9308/metrics](http://localhost:9308/metrics)                       | Kafka Metrics |
-| **LocalStack Health** | [http://localhost:4566/_localstack/health](http://localhost:4566/_localstack/health) | AWS Emulation Status |
+|Service|URL|Description|
+|:---|:---|:---|
+|**Grafana**|[http://localhost:3000](http://localhost:3000)|Visualization (User: `admin` / Pass: `admin`)|
+|**Kafka Dashboard**|[http://localhost:3000/d/kafka-overview](http://localhost:3000/d/kafka-overview)|**Direct Link to Kafka Metrics**|
+|**Flink Dashboard**|[http://localhost:8081](http://localhost:8081)|JobManager UI|
+|**Prometheus**|[http://localhost:9090/targets](http://localhost:9090/targets)|Metrics Server|
+|**Kafka Exporter**|[http://localhost:9308/metrics](http://localhost:9308/metrics)|Kafka Metrics|
+|**LocalStack Health**|[http://localhost:4566/_localstack/health](http://localhost:4566/_localstack/health)|AWS Emulation Status|
 
 ### Generate Data
 
@@ -148,12 +148,12 @@ make all
 
 ### Individual Checks
 
-| Command | Tool | Description |
-| :--- | :--- | :--- |
-| `make lint` | **Ruff** | Catch errors and automatically fix safe violations (like import sorting) |
-| `make format` | **Ruff** | Automatically reformat code to match project standards |
-| `make type-check` | **ty** | Verify type safety across the entire codebase |
-| `make test` | **pytest** | Run unit and integration tests |
+|Command|Tool|Description|
+|:---|:---|:---|
+|`make lint`|**Ruff**|Catch errors and automatically fix safe violations (like import sorting)|
+|`make format`|**Ruff**|Automatically reformat code to match project standards|
+|`make type-check`|**ty**|Verify type safety across the entire codebase|
+|`make test`|**pytest**|Run unit and integration tests|
 
 ---
 
@@ -161,19 +161,19 @@ make all
 
 ### Service Management via Makefile
 
-| Command | Description |
-| :--- | :--- |
-| `make infra-up` | Start Docker & Provision Terraform (Full Start) |
-| `make infra-down` | Destroy Terraform resources & Stop Docker |
-| `make docker-up` | Start Docker containers only |
-| `make docker-down` | Stop Docker containers only |
-| `make generate` | Run data generator |
-| `make monitor` | Open Grafana |
-| `make all` | Run all Python Quality Checks (Nox) |
-| `make list-s3` | List S3 buckets in LocalStack |
-| `make list-s3-raw` | List objects in raw events bucket |
-| `make list-s3-dlq` | List objects in DLQ bucket |
-| `make list-s3-aggregated` | List objects in aggregated bucket |
+|Command|Description|
+|:---|:---|
+|`make infra-up`|Start Docker & Provision Terraform (Full Start)|
+|`make infra-down`|Destroy Terraform resources & Stop Docker|
+|`make docker-up`|Start Docker containers only|
+|`make docker-down`|Stop Docker containers only|
+|`make generate`|Run data generator|
+|`make monitor`|Open Grafana|
+|`make all`|Run all Python Quality Checks (Nox)|
+|`make list-s3`|List S3 buckets in LocalStack|
+|`make list-s3-raw`|List objects in raw events bucket|
+|`make list-s3-dlq`|List objects in DLQ bucket|
+|`make list-s3-aggregated`|List objects in aggregated bucket|
 
 ### Kafka Operations
 

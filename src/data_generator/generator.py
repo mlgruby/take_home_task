@@ -91,7 +91,7 @@ class PageviewGenerator:
                 self.postcodes, weights=self._zipf_weights(len(self.postcodes))
             )[0],
             "webpage": random.choices(self.urls, weights=self._url_weights())[0],
-            "timestamp": int(datetime.now().timestamp()),
+            "timestamp": int(datetime.now().timestamp() * 1000),
         }
 
     def generate_validated_event(self) -> PageviewEvent:

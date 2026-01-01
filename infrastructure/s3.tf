@@ -61,35 +61,15 @@ resource "aws_s3_bucket_lifecycle_configuration" "aggregated" {
   }
 }
 
-# Dead Letter Queue storage (For malformed events)
-resource "aws_s3_bucket" "dlq" {
-  bucket = "${var.project_name}-${terraform.workspace}-dlq"
+
+# Flink Checkpoints storage
+resource "aws_s3_bucket" "flink_checkpoints" {
+  bucket = "${var.project_name}-${terraform.workspace}-flink-checkpoints"
 
   tags = merge(local.common_tags, {
-    Purpose = "Malformed event storage (DLQ)"
+    Purpose = "Flink checkpoint storage"
   })
 }
-
-resource "aws_s3_bucket_lifecycle_configuration" "dlq" {
-  bucket = aws_s3_bucket.dlq.id
-
-  rule {
-    id     = "expire-dlq-events"
-    status = "Enabled"
-
-    transition {
-      days          = 30
-      storage_class = "GLACIER"
-    }
-
-    # Auto-expire after 90 days as DLQ items are usually time-sensitive
-    expiration {
-      days = 90
-    }
-  }
-}
-
-
 
 ## IAM Policies for Data Access
 
@@ -104,7 +84,7 @@ data "aws_iam_policy_document" "s3_data_access" {
     resources = [
       "${aws_s3_bucket.raw_events.arn}/*",
       "${aws_s3_bucket.aggregated.arn}/*",
-      "${aws_s3_bucket.dlq.arn}/*"
+      "${aws_s3_bucket.flink_checkpoints.arn}/*"
     ]
   }
 
@@ -115,7 +95,7 @@ data "aws_iam_policy_document" "s3_data_access" {
     resources = [
       aws_s3_bucket.raw_events.arn,
       aws_s3_bucket.aggregated.arn,
-      aws_s3_bucket.dlq.arn
+      aws_s3_bucket.flink_checkpoints.arn
     ]
   }
 }

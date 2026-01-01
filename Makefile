@@ -12,27 +12,32 @@ help: ## Show this help message
 	@echo 'Available targets:'
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
-setup: ## Initial project setup
+setup: verify-deps ## Initial project setup
+	@echo "Checking for Python 3.10..."
+	@command -v python3.10 >/dev/null 2>&1 || { echo "Python 3.10 not found in PATH. Installing via uv..."; uv python install 3.10; }
 	@echo "Setting up project..."
-	poetry install
+	uv sync
 	cp -n .env.example .env || true
 	mkdir -p localstack-data
 	@echo "Setup complete! Edit .env if needed."
 
 install: ## Install dependencies
-	poetry install
+	uv sync
 
 test: ## Run all tests with Nox
-	poetry run nox -rs test
+	uv run nox -rs test
+
+test-flink: ## Run Flink tests with Nox (isolated)
+	uv run nox -rs test_flink
 
 lint: ## Run linters with Nox
-	poetry run nox -rs lint
+	uv run nox -rs lint
 
 format: ## Format code with Nox
-	poetry run nox -rs format
+	uv run nox -rs format
 
 type-check: ## Run type checking with Nox
-	poetry run nox -rs type_check
+	uv run nox -rs type_check
 
 clean: ## Clean generated files
 	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
@@ -41,8 +46,11 @@ clean: ## Clean generated files
 	rm -rf infrastructure/.terraform infrastructure/terraform.tfstate* infrastructure/.terraform.lock.hcl infrastructure/.terraform.tfstate.d
 
 verify-deps: ## Check presence of required tools
-	@command -v docker >/dev/null 2>&1 || { echo "Docker is not installed"; exit 1; }
-	@command -v terraform >/dev/null 2>&1 || { echo "Terraform is not installed"; exit 1; }
+	@export PATH="$$HOME/bin:$$PATH"; \
+	command -v docker >/dev/null 2>&1 || { echo "Docker is not installed"; exit 1; }
+	@export PATH="$$HOME/bin:$$PATH"; \
+	command -v terraform >/dev/null 2>&1 || { echo "Terraform is not installed"; exit 1; }
+	@command -v uv >/dev/null 2>&1 || { echo "uv is not installed"; exit 1; }
 	@echo "Dependencies verified"
 
 docker-up: verify-deps ## Start Docker services
@@ -116,5 +124,26 @@ flink-submit-job: ## Submit PyFlink job (usage: make flink-submit-job script=pat
 flink-cancel-job: ## Cancel Flink job (usage: make flink-cancel-job id=<JOB_ID>)
 	docker exec pageview-flink-jobmanager flink cancel $(id)
 
+inspect-s3-raw: ## Download and inspect raw S3 Parquet data
+	@echo "Downloading sample raw event file..."
+	@mkdir -p /tmp/flink-samples
+	@aws --endpoint-url=$(AWS_ENDPOINT_URL) s3 cp \
+		s3://pageview-pipeline-local-raw-events/dt=$$(date +%Y-%m-%d)/event_hour=$$(date +%H)/$$(aws --endpoint-url=$(AWS_ENDPOINT_URL) s3 ls s3://pageview-pipeline-local-raw-events/dt=$$(date +%Y-%m-%d)/event_hour=$$(date +%H)/ 2>/dev/null | grep -v "_SUCCESS" | head -1 | awk '{print $$4}') \
+		/tmp/flink-samples/raw_sample.parquet 2>/dev/null || \
+		aws --endpoint-url=$(AWS_ENDPOINT_URL) s3 cp \
+		$$(aws --endpoint-url=$(AWS_ENDPOINT_URL) s3 ls s3://pageview-pipeline-local-raw-events/ --recursive | grep -v "_SUCCESS" | head -1 | awk '{print "s3://pageview-pipeline-local-raw-events/" $$4}') \
+		/tmp/flink-samples/raw_sample.parquet
+	@echo "\n=== Raw Events Schema & Data ==="
+	@uv run python -c "import polars as pl; df = pl.read_parquet('/tmp/flink-samples/raw_sample.parquet'); print('Schema:'); print(df.schema); print('\nSample Data (first 10 rows):'); print(df.head(10))"
+
+inspect-s3-aggregated: ## Download and inspect aggregated S3 Parquet data
+	@echo "Downloading sample aggregated file..."
+	@mkdir -p /tmp/flink-samples
+	@aws --endpoint-url=$(AWS_ENDPOINT_URL) s3 cp \
+		$$(aws --endpoint-url=$(AWS_ENDPOINT_URL) s3 ls s3://pageview-pipeline-local-aggregated/ 2>/dev/null | grep -v "_SUCCESS" | head -1 | awk '{print "s3://pageview-pipeline-local-aggregated/" $$4}') \
+		/tmp/flink-samples/agg_sample.parquet 2>/dev/null
+	@echo "\n=== Aggregated Data Schema & Data ==="
+	@uv run python -c "import polars as pl; df = pl.read_parquet('/tmp/flink-samples/agg_sample.parquet'); print('Schema:'); print(df.schema); print(f'\nTotal rows: {len(df)}'); print('\nAll Data:'); print(df)"
+
 all: ## Run all checks via Nox
-	poetry run nox -rs
+	uv run nox -rs
