@@ -93,7 +93,8 @@ root = ["."]
 [tool.ty.src]
 exclude = [
     "tests/**",
-    "flink-app/**"
+    "flink-app/**",
+    "noxfile.py"
 ]
 
 [tool.pytest.ini_options]

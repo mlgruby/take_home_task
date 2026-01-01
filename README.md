@@ -7,103 +7,129 @@ A real-time data pipeline for processing website pageview events using Kafka and
 ```mermaid
 graph LR
     A[Data Generator] -->|Publish JSON| B[Kafka]
+    A -->|Metrics| F[Prometheus]
     B -->|Stream| C[Flink Application]
     B -->|Export| H[Kafka Exporter]
     H -->|Metric| F
     C -->|Sink Parquet| D[S3: Raw Events]
     C -->|Sink Parquet| E[S3: Aggregated Results]
-    C -->|Malformed Events| I[S3: DLQ Bucket]
-    C -->|Metrics| F[Prometheus]
+    C -->|Metrics| F
     F -->|Visualize| G[Grafana]
+```
+
+## Project Structure
+
+```bash
+├── flink-app/                  # PyFlink Stream Processing Logic
+│   ├── src/
+│   │   ├── sql/                # SQL Definition Package
+│   │   │   ├── tables.py       # SQL DDL: Sources & Sinks (Kafka, S3)
+│   │   │   ├── views.py        # SQL Views: Deduplication & Validation Logic
+│   │   │   └── inserts.py      # SQL DML: Pipeline Connectivity
+│   │   ├── config.py           # Flink Job Configuration (Env Vars)
+│   │   └── main.py             # App Entrypoint: Job Graph Orchestration
+│   └── tests/                  # Flink SQL & Integration Tests
+│
+├── src/                        # Python Support Modules
+│   ├── common/                 # Shared Utilities (Schemas, Logging)
+│   └── data_generator/         # Kafka Producer Logic
+│       ├── generator.py        # Data Factory (Faker + Zipfian Skew)
+│       └── producer.py         # Kafka Publisher
+│
+├── docker/                     # Docker Images
+│   ├── Dockerfile.flink        # Custom Flink Image (ARM64 compatible)
+│   └── Dockerfile.generator    # Data Generator Image (Python 3.10 + uv)
+│
+├── infrastructure/             # Terraform (LocalStack)
+│   ├── main.tf                 # S3 Buckets & IAM Policies
+│   └── variables.tf            # Terraform Variables
+│
+├── monitoring/                 # Observability Stack
+│   ├── grafana/                # Provisioned Dashboards
+│   └── prometheus/             # Scrape Configuration
+│
+├── Makefile                    # Project Orchestration
+├── docker-compose.yml          # Container Services Definition
+├── noxfile.py                  # Quality Assurance (Lint, Test, Type Check)
+└── pyproject.toml              # Dependencies & Tool Configuration (uv)
 ```
 
 ---
 
 ## Quick Start
 
-### Prerequisites
+### 1. Prerequisites
 
-- **Docker and Docker Compose**: To run Kafka, Flink, Data Generator, and **LocalStack** containers (no separate LocalStack installation required).
-- **Terraform (>= 1.5)**: To provision S3 buckets in LocalStack.
-- **Make**: To orchestrate the simplified workflow.
-- **Python 3.12+ & Poetry** (Optional): Only required for local unit testing or running the generator outside Docker.
-- **`aws-cli`** (Optional): For manual S3 and Kafka verification.
+- **uv**: The project uses `uv` for lightning-fast dependency management. [Install uv](https://docs.astral.sh/uv/getting-started/installation/).
+- **Docker and Docker Compose**: To run the streaming stack (Kafka, Flink, LocalStack).
+  > **Note**: This project is built on **Apple Silicon (ARM64)**. The Flink Docker image includes pre-compiled ARM-compatible JARs to ensure stability.
+- **Terraform (>= 1.5)**: To provision AWS infrastructure in LocalStack.
+- **Python 3.10**: Required for Flink compatibility (automatically managed via `uv`).
 
-### One-Command Setup
+### 2. End-to-End Run
 
-Get the entire pipeline infrastructure flowing with a single command:
+Follow these steps to run the entire pipeline:
+
+#### Step 1: Project Setup
+
+Initialize the environment, install Python 3.10, and sync dependencies.
 
 ```bash
-# Installs dependencies, starts Docker, provisions S3, and selects 'local' workspace
+make setup
+```
+
+#### Step 2: Infrastructure Provisioning
+
+Spin up Docker containers and provision S3 buckets via Terraform.
+
+```bash
 make infra-up
 ```
 
-*Note: This starts the infrastructure (Kafka, Flink, S3) but the processing job must be submitted explicitly (see below).*
+#### Step 3: Submit the Processing Job
 
-### Start Processing
-
-Once the infrastructure is up, submit the PyFlink processing job:
+Upload the PyFlink logic to the cluster.
 
 ```bash
-# Submits the pipeline logic to the running cluster
-make flink-submit-job PYFLINK_JOB=flink-app/src/main.py
+make flink-submit-job # Ctrl+C after the job is submitted
 ```
 
-### Validate Code Quality
+#### Step 4: Monitor Progress
 
-Run all quality checks (lint, format, type-check, and tests) in one command:
+- **Live Logs**: Watch the data generator produce events: `make generate`
+- **Data Flow**: Watch raw events land in Kafka: `make kafka-consume-events` (Ctrl+C to exit)
+- **Flink UI**: Monitor job status and checkpoints at [http://localhost:8081](http://localhost:8081).
+- **Grafana Dashboards**: View metrics at [http://localhost:3000](http://localhost:3000) (admin/admin). Look for the **Flink Command Center** dashboard.
+
+#### Step 5: Verify Results in S3
+
+Wait a minute for the first window to close, then check the storage:
 
 ```bash
-# Proactively formats code and runs all tests via Nox
-make all
+# List aggregated files
+make list-s3-aggregated
+# Inspect aggregated Parquet data (requires local uv)
+make inspect-s3-aggregated
 ```
 
-### Components Running
+#### Step 6: Cleanup
 
-Once `make infra-up` completes, we will have:
+Tear down the infrastructure and clean up local artifacts.
 
-- **LocalStack**: S3 (Raw, Aggregated, & DLQ buckets), IAM.
-- **Kafka**: Native Kafka (KRaft mode) + auto-created `pageview-events` topic.
-- **Flink**: JobManager & TaskManager (v1.20).
-- **Monitoring**: Prometheus (metrics) & Grafana (dashboards).
+```bash
+make clean docker-clean
+```
+
+---
 
 ### 🔗 Service Endpoints
 
 |Service|URL|Description|
 |:---|:---|:---|
 |**Grafana**|[http://localhost:3000](http://localhost:3000)|Visualization (User: `admin` / Pass: `admin`)|
-|**Kafka Dashboard**|[http://localhost:3000/d/kafka-overview](http://localhost:3000/d/kafka-overview)|**Direct Link to Kafka Metrics**|
 |**Flink Dashboard**|[http://localhost:8081](http://localhost:8081)|JobManager UI|
-|**Prometheus**|[http://localhost:9090/targets](http://localhost:9090/targets)|Metrics Server|
-|**Kafka Exporter**|[http://localhost:9308/metrics](http://localhost:9308/metrics)|Kafka Metrics|
-|**LocalStack Health**|[http://localhost:4566/_localstack/health](http://localhost:4566/_localstack/health)|AWS Emulation Status|
-
-### Generate Data
-
-The data generator starts automatically as part of the container stack. To monitor the live event stream:
-
-```bash
-make generate
-```
-
-### Verify Pipeline
-
-1. **Check S3 Buckets** (Provisioned via Terraform):
-
-   ```bash
-   AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test AWS_DEFAULT_REGION=us-east-1 \
-   aws --endpoint-url=http://localhost:4566 s3 ls
-   ```
-
-2. **Check Kafka Messages**:
-
-   ```bash
-   docker exec pageview-kafka kafka-console-consumer --bootstrap-server localhost:9092 --topic pageview-events --from-beginning --max-messages 5
-   ```
-
-3. **Check Flink Dashboard**: <http://localhost:8081> (Confirm your job is "RUNNING")
-
-4. **Check Grafana**: <http://localhost:3000> (admin/admin)
+|**Prometheus**|[http://localhost:9090](http://localhost:9090)|Metrics|
+|**LocalStack Health**|[http://localhost:4566/_localstack/health](http://localhost:4566/_localstack/health)|AWS Status|
 
 ---
 
@@ -172,8 +198,9 @@ make all
 |`make all`|Run all Python Quality Checks (Nox)|
 |`make list-s3`|List S3 buckets in LocalStack|
 |`make list-s3-raw`|List objects in raw events bucket|
-|`make list-s3-dlq`|List objects in DLQ bucket|
 |`make list-s3-aggregated`|List objects in aggregated bucket|
+|`make inspect-s3-raw`|Download & inspect random raw Parquet file|
+|`make inspect-s3-aggregated`|Download & inspect random aggregated Parquet file|
 
 ### Kafka Operations
 
@@ -284,3 +311,43 @@ docker-compose logs data-generator
 # Verify Kafka topic exists
 docker exec -it pageview-kafka kafka-topics --list --bootstrap-server localhost:9092
 ```
+
+---
+
+## Assumptions & Future Improvements
+
+### Assumptions
+
+- **Ordered Data**: The current pipeline assumes data arrives relatively in order (bounded out-of-orderness of 0s). In a real-world scenario with mobile clients, this watermark strategy needs to be relaxed (e.g., 10-30s lag).
+- **Traffic Patterns**: We assume consistent traffic without massive spikes. Auto-scaling policies for Flink TaskManagers are not currently implemented.
+- **Local Consistency**: LocalStack S3 is assumed to behave consistently with AWS S3. In production, 'eventual consistency' might require more robust sink handling.
+
+### Improvements Roadmap
+
+1. **Dead Letter Queue (DLQ)**
+    - **Problem**: Currently, invalid rows are filtered out by the `validated_events` view.
+    - **Solution**: Implement a "Side Output" or dedicated SQL sink to capture malformed JSON or invalid schema events. This ensures 0% data loss and allows for replays.
+
+2. **Advanced Metrics (Scala/Java)**
+    - **Problem**: PyFlink has some overhead for complex per-record custom metrics.
+    - **Solution**: Migrate core aggregation logic to **Scala** or **Java**. This unlocks access to low-level Flink metric groups (Counters, Gauges, Histograms) that can be exposed directly to Prometheus without Python serialization costs.
+
+3. **Prometheus Alerting**
+    - **Problem**: We have dashboards, but no proactive alerts.
+    - **Solution**: Configure `alert.rules` in Prometheus to trigger on:
+        - `flink_jobmanager_numRegisteredTaskManagers < 1` (Cluster instability)
+        - `kafka_consumergroup_lag > 10000` (Processing falling behind)
+        - `flink_taskmanager_Status_JVM_CPU_Load > 0.9` (Resource saturation)
+
+4. **Production Hardening**
+    - **Kubernetes**: Move from Docker Compose to **Amazon EKS** with the **Flink Kubernetes Operator** for elastic scaling.
+    - **Schema Registry**: Replace hardcoded SQL types with **AWS Glue Schema Registry** or **Confluent Schema Registry** to handle schema evolution gracefully.
+    - **Data Contracts**: Integrate tools like **Avo** to validate data quality before it enters the stream.
+
+5. **Hot Partition Strategy**
+    - **Problem**: Switching from Round-Robin (current) to Keyed Partitioning (e.g., by postcode) will expose the underlying **Zipfian skew**, causing "hot partitions" and consumer lag.
+    - **Solution**: Implement **Salted Keys** (appending random suffixes to high-traffic keys) or use Flink's `rebalance` operator upstream to redistribute load before key-based aggregation.
+
+6. **CI/CD Pipeline**
+    - **Problem**: Releases are manual.
+    - **Solution**: Implement a **GitHub Actions** workflow:
