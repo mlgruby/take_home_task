@@ -25,7 +25,7 @@ class PageviewEvent(BaseModel):
     def validate_timestamp(cls, v: int) -> int:
         """Validate timestamp is within reasonable range (year 2000 - 2100)."""
         # Allow both seconds (old) and milliseconds (new) ranges for compatibility if needed,
-        # but strictly our generator now sends ms. Validating for ms range:
+        # but strictly the generator now sends ms. Validating for ms range:
         # 2000-01-01 ms: 946,684,800,000
         # 2100-01-01 ms: 4,102,444,800,000
         if v < 946684800000 or v > 4102444800000:

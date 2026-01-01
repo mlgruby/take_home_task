@@ -155,7 +155,7 @@ make clean docker-clean
 
 ## Quality Assurance
 
-We use **Nox** to automate all code quality checks.
+I use **Nox** to automate all code quality checks.
 
 > [!NOTE]
 > **Why Nox?**
@@ -319,7 +319,7 @@ docker exec -it pageview-kafka kafka-topics --list --bootstrap-server localhost:
 ### Assumptions
 
 - **Ordered Data**: The current pipeline assumes data arrives relatively in order (bounded out-of-orderness of 0s). In a real-world scenario with mobile clients, this watermark strategy needs to be relaxed (e.g., 10-30s lag).
-- **Traffic Patterns**: We assume consistent traffic without massive spikes. Auto-scaling policies for Flink TaskManagers are not currently implemented.
+- **Traffic Patterns**: I assume consistent traffic without massive spikes. Auto-scaling policies for Flink TaskManagers are not currently implemented.
 - **Local Consistency**: LocalStack S3 is assumed to behave consistently with AWS S3. In production, 'eventual consistency' might require more robust sink handling.
 
 ### Improvements Roadmap
